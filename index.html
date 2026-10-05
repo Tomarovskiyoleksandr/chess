@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0e0e">
+  <meta name="description" content="Шахматный помощник: анализ позиции, оценка и поиск лучшего хода со Stockfish.">
+  <title>MonsterChess — шахматный помощник</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="MonsterChess — главная" data-i18n-aria="home"><span class="brand-icon" aria-hidden="true">♞</span><span>Monster<span class="accent">Chess</span></span></a>
+      <span class="current-page"><span data-i18n="analysis">Анализ позиции</span></span>
+      <label class="language-picker"><span aria-hidden="true">◎</span><select id="languageSelect" aria-label="Язык" data-i18n-aria="language"><option value="ru" lang="ru">Русский</option><option value="en" lang="en">English</option><option value="de" lang="de">Deutsch</option><option value="uk" lang="uk">Українська</option></select></label>
+    </header>
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div class="eyebrow"><span data-i18n="eyebrow">КАЖДЫЙ ХОД<br>ИМЕЕТ ЗНАЧЕНИЕ</span></div>
+        <h1 id="page-title">Monster<span class="accent">Chess</span></h1>
+        <h2><span data-i18n="headline">Сильные ходы начинаются с анализа.</span></h2>
+        <p><span data-i18n="intro">Исследуй позицию, находи лучший ход<br>и понимай игру глубже.</span></p>
+      </section>
+      <div class="app">
+        <aside class="panel controls" aria-label="Настройки позиции" data-i18n-aria="controls">
+          <div class="side-picker">
+            <div class="section-label"><span data-i18n="play">Я играю</span></div>
+            <div class="side-buttons">
+              <button id="playWhiteBtn" class="side-btn active"><span aria-hidden="true">♔</span> <span data-i18n="white">Белыми</span></button>
+              <button id="playBlackBtn" class="side-btn"><span aria-hidden="true">♚</span> <span data-i18n="black">Чёрными</span></button>
+            </div>
+          </div>
+          <div class="position-controls">
+            <div class="section-label"><span data-i18n="position">Позиция на доске</span></div>
+            <button id="resetBtn" class="soft-btn"><span aria-hidden="true">♜</span> <span data-i18n="reset">Начальная позиция</span></button>
+            <button id="flipBtn"><span aria-hidden="true">↻</span> <span data-i18n="flip">Перевернуть доску</span></button>
+          </div>
+          <div class="fen-section">
+            <label class="section-label" for="fenInput"><span data-i18n="loadPosition">Загрузить позицию</span> <span class="muted">FEN</span></label>
+            <textarea id="fenInput" spellcheck="false" aria-label="Позиция в формате FEN" data-i18n-aria="fenLabel"></textarea>
+            <button id="loadFenBtn"><span data-i18n="loadFen">Загрузить FEN</span></button>
+          </div>
+          <div class="setting">
+            <label class="section-label" for="depth"><span data-i18n="depth">Глубина анализа</span></label>
+            <div class="range-row"><input id="depth" type="range" min="8" max="18" value="14"><strong id="depthValue">14</strong></div>
+          </div>
+        </aside>
+        <section class="board-side" aria-label="Шахматная доска" data-i18n-aria="board">
+          <div class="board-frame"><div id="board" class="board"></div></div>
+          <div class="board-actions">
+            <button id="undoBtn" title="Отменить последний ход" data-i18n-title="undoTitle">← <span><span data-i18n="undo">Назад</span></span></button>
+            <button id="analyzeBtn" data-i18n="analyze" class="main-btn">Найти лучший ход</button>
+          </div>
+        </section>
+        <aside class="panel analysis-panel" aria-label="Результат анализа" data-i18n-aria="results">
+          <div class="engine-status"><span id="statusDot"></span><span id="engineStatus" data-i18n="loading">Загрузка Stockfish...</span></div>
+          <div class="result-block best-result" aria-live="polite"><span class="section-label"><span class="star" aria-hidden="true">★</span> <span data-i18n="best">Лучший ход</span></span><strong id="bestMove">—</strong></div>
+          <div class="result-block score-result"><span><span data-i18n="score">Оценка позиции для тебя</span></span><strong id="evaluation" aria-live="polite">—</strong></div>
+          <div class="position-info">
+            <div class="info-row"><span id="turnText" data-i18n="turnWhite">Ход белых</span><span id="depthText">Глубина: —</span></div>
+            <div class="you-row"><span id="playerInfo" data-i18n="playerWhite">Ты играешь: белыми</span><span id="moveOwnerText" data-i18n="yourTurn">Сейчас твой ход</span></div>
+          </div>
+          <div class="history"><div class="history-title"><span data-i18n="history">История партии</span></div><div id="moves" data-i18n="empty">Пока ходов нет</div></div>
+          <div class="help"><span data-i18n="help">Нажми на фигуру, затем на клетку, куда хочешь её поставить. Чтобы увидеть подсказку, нажми «Найти лучший ход».</span></div>
+        </aside>
+      </div>
+    </main>
+    <footer><span><span data-i18n="footer">АНАЛИЗИРУЙ. УЧИСЬ. ПОБЕЖДАЙ.</span></span><span><span data-i18n="motto">Твой следующий ход — сильнее.</span></span></footer>
+  </div>
+  <script src="./i18n.js"></script>
+  <script src="./chess.js"></script>
+</body>
+</html>
