@@ -15,7 +15,6 @@
   // ==========================================
 
   const boardEl = document.getElementById("board");
-  const analyzeBtn = document.getElementById("analyzeBtn");
   const resetBtn = document.getElementById("resetBtn");
   const undoBtn = document.getElementById("undoBtn");
   const flipBtn = document.getElementById("flipBtn");
@@ -39,6 +38,127 @@
 
   const playWhiteBtn = document.getElementById("playWhiteBtn");
   const playBlackBtn = document.getElementById("playBlackBtn");
+  const stockfishTab = document.getElementById('stockfishTab');
+  const maiaTab = document.getElementById('maiaTab');
+  const maiaLevel = document.getElementById('maiaLevel');
+  const maiaCount = document.getElementById('maiaCount');
+  const variantList = document.getElementById('variantList');
+  let activeEngine = 'stockfish';
+  let maiaWorker = null;
+  let maiaState = 'idle';
+  let maiaProgress = null;
+  let maiaRequest = 0;
+  let maiaResults = [];
+  let stockfishState = 'loading';
+  let stockfishStopping = false;
+
+  function refreshEngineStatus() {
+    const isMaia = activeEngine === 'maia';
+    text(engineStatus, isMaia ? ({idle:'maiaLoading', loading:'maiaLoading', ready:'maiaReady', error:'maiaError'}[maiaState]) : stockfishState);
+    if (isMaia && maiaState === 'loading' && maiaProgress !== null) text(engineStatus, 'maiaProgress', {value: maiaProgress});
+    statusDot.classList.toggle('ready', isMaia ? maiaState === 'ready' : engineReady);
+  }
+
+  function createMaia() {
+    maiaState = 'loading';
+    maiaProgress = null;
+    refreshEngineStatus();
+    try {
+      maiaWorker = new Worker('./maia-worker.js');
+      maiaWorker.onmessage = ({data}) => {
+        if (data.type === 'progress') {
+          maiaProgress = data.progress;
+        } else if (data.type === 'ready') {
+          maiaState = 'ready';
+          requestAutomaticAnalysis();
+        } else if (data.type === 'error') {
+          if (data.id !== undefined && data.id !== maiaRequest) return;
+          console.error('Maia:', data.message);
+          maiaState = 'error';
+          maiaWorker.terminate();
+          maiaWorker = null;
+          if (activeEngine === 'maia') { analyzing = false; literal(bestMoveEl, '—'); literal(evaluationEl, '—'); }
+        } else if (data.type === 'result') {
+          if (activeEngine !== 'maia' || data.id !== maiaRequest) return;
+          analyzing = false;
+          maiaResults = data.moves;
+          literal(evaluationEl, ((isPlayersTurn() ? data.value : 1 - data.value) * 100).toFixed(1) + '%');
+          text(depthText, 'maiaDepth', {value: maiaLevel.value});
+          renderVariants();
+          if (maiaResults.length) selectMaiaMove(maiaResults[0].move);
+          else text(bestMoveEl, 'noMoves');
+        }
+        refreshEngineStatus();
+      };
+      maiaWorker.onerror = () => {
+        maiaState = 'error';
+        maiaWorker.terminate();
+        maiaWorker = null;
+        if (activeEngine === 'maia') { analyzing = false; literal(bestMoveEl, '—'); literal(evaluationEl, '—'); }
+        refreshEngineStatus();
+      };
+      maiaWorker.postMessage({type: 'init'});
+    } catch (error) {
+      maiaState = 'error';
+      refreshEngineStatus();
+    }
+  }
+
+  function selectMaiaMove(move) {
+    bestFrom = move.slice(0, 2);
+    bestTo = move.slice(2, 4);
+    displayMove(move);
+    renderVariants(move);
+    renderBoard();
+  }
+
+  function renderVariants(selected = maiaResults[0]?.move) {
+    variantList.innerHTML = '';
+    for (const {move, probability} of maiaResults.slice(0, Number(maiaCount.value))) {
+      const button = document.createElement('button');
+      button.className = 'variant-row' + (move === selected ? ' active' : '');
+      button.setAttribute('aria-pressed', String(move === selected));
+      const notation = document.createElement('span');
+      const preview = new Chess(chess.fen());
+      notation.textContent = preview.move({from: move.slice(0, 2), to: move.slice(2, 4), promotion: move[4]}).san;
+      const chance = document.createElement('strong');
+      chance.textContent = (probability * 100).toFixed(1) + '%';
+      button.appendChild(notation);
+      button.appendChild(chance);
+      button.addEventListener('click', () => selectMaiaMove(move));
+      variantList.appendChild(button);
+    }
+  }
+
+  function switchEngine(next) {
+    if (activeEngine === next) return;
+    stopEngine();
+    activeEngine = next;
+    const isMaia = next === 'maia';
+    stockfishTab.classList.toggle('active', !isMaia);
+    maiaTab.classList.toggle('active', isMaia);
+    stockfishTab.setAttribute('aria-pressed', String(!isMaia));
+    maiaTab.setAttribute('aria-pressed', String(isMaia));
+    document.getElementById('stockfishSettings').hidden = isMaia;
+    document.getElementById('maiaSettings').hidden = !isMaia;
+    document.getElementById('maiaVariants').hidden = !isMaia;
+    text(document.getElementById('bestLabel'), isMaia ? 'maiaBest' : 'best');
+    text(document.getElementById('scoreLabel'), isMaia ? 'maiaScore' : 'score');
+    clearAnalysis();
+    renderBoard();
+    if (isMaia && (maiaState === 'idle' || maiaState === 'error')) createMaia();
+    else requestAutomaticAnalysis();
+    refreshEngineStatus();
+  }
+  stockfishTab.addEventListener('click', () => switchEngine('stockfish'));
+  maiaTab.addEventListener('click', () => switchEngine('maia'));
+  maiaLevel.addEventListener('input', () => {
+    document.getElementById('maiaLevelValue').textContent = maiaLevel.value;
+    clearAnalysis();
+    renderBoard();
+    requestAutomaticAnalysis();
+  });
+  maiaCount.addEventListener('change', () => renderVariants());
 
   // ==========================================
   // BOARD STATE
@@ -88,6 +208,7 @@
 
     clearAnalysis();
     renderBoard();
+    requestAutomaticAnalysis();
   }
 
   function isPlayersTurn() {
@@ -239,6 +360,7 @@
         possibleSquares = [];
         clearAnalysis();
         renderBoard();
+        requestAutomaticAnalysis();
       }
     } catch (error) {
       selectedSquare = null;
@@ -282,11 +404,14 @@
   // ==========================================
 
   function clearAnalysis() {
+    stopEngine();
+    maiaResults = [];
+    variantList.innerHTML = '';
     bestFrom = null;
     bestTo = null;
     evaluationEl.textContent = "—";
     literal(bestMoveEl, "—");
-    text(depthText, "depthValue", { value: "—" });
+    text(depthText, activeEngine === 'maia' ? 'maiaDepth' : 'depthValue', { value: activeEngine === 'maia' ? maiaLevel.value : '—' });
   }
 
   // ==========================================
@@ -297,7 +422,7 @@
     const from = move.substring(0, 2);
     const to = move.substring(2, 4);
     const piece = chess.get(from);
-    if (piece) text(bestMoveEl, "move", { piece: { key: piece.type }, from, to });
+    if (piece) text(bestMoveEl, "move", { piece: { key: piece.type }, from, to, promotion: move[4] ? ' = ' + move[4].toUpperCase() : '' });
     else literal(bestMoveEl, `${from} → ${to}`);
   }
 
@@ -320,6 +445,7 @@
     possibleSquares = [];
     clearAnalysis();
     renderBoard();
+    requestAutomaticAnalysis();
   });
 
   undoBtn.addEventListener("click", () => {
@@ -329,6 +455,7 @@
     possibleSquares = [];
     clearAnalysis();
     renderBoard();
+    requestAutomaticAnalysis();
   });
 
   flipBtn.addEventListener("click", () => {
@@ -338,6 +465,8 @@
 
   depthSlider.addEventListener("input", () => {
     depthValue.textContent = depthSlider.value;
+    clearAnalysis();
+    requestAutomaticAnalysis();
   });
 
   // ==========================================
@@ -355,6 +484,7 @@
       possibleSquares = [];
       clearAnalysis();
       renderBoard();
+      requestAutomaticAnalysis();
     } catch (error) {
       alert(t("invalidFen"));
     }
@@ -373,7 +503,8 @@
 
   async function createEngine() {
     try {
-      text(engineStatus, "loading");
+      stockfishState = 'loading';
+      refreshEngineStatus();
 
       const response = await fetch(STOCKFISH_URL);
 
@@ -395,14 +526,17 @@
 
       engine.onerror = (event) => {
         console.error("Stockfish error:", event);
-        text(engineStatus, "engineError");
+        engineReady = false;
+        stockfishState = 'engineError';
+        if (activeEngine === 'stockfish') analyzing = false;
+        refreshEngineStatus();
       };
 
       engine.postMessage("uci");
     } catch (error) {
       console.error("Stockfish load error:", error);
-      text(engineStatus, "engineFailed");
-      analyzeBtn.disabled = true;
+      stockfishState = 'engineFailed';
+      refreshEngineStatus();
     }
   }
 
@@ -424,10 +558,18 @@
 
     if (message.includes("readyok")) {
       engineReady = true;
-      text(engineStatus, "ready");
-      statusDot.classList.add("ready");
+      stockfishState = 'ready';
+      refreshEngineStatus();
+      requestAutomaticAnalysis();
     }
 
+    if (message.startsWith('bestmove') && stockfishStopping) {
+      stockfishStopping = false;
+      refreshEngineStatus();
+      requestAutomaticAnalysis();
+      return;
+    }
+    if (activeEngine !== 'stockfish' || !analyzing || stockfishStopping) return;
     if (message.startsWith("info ")) {
       parseAnalysis(message);
     }
@@ -492,8 +634,6 @@
 
   function parseBestMove(message) {
     analyzing = false;
-    analyzeBtn.disabled = false;
-    text(analyzeBtn, "analyze");
 
     const match = message.match(
       /bestmove\s([a-h][1-8][a-h][1-8][qrbn]?)/
@@ -515,19 +655,25 @@
   }
 
   // ==========================================
-  // ANALYZE
+  // AUTOMATIC ANALYSIS FOR THE SELECTED SIDE
   // ==========================================
 
-  analyzeBtn.addEventListener("click", () => {
-    if (!engineReady) {
-      alert(t("waiting"));
+  function requestAutomaticAnalysis() {
+    if (!isPlayersTurn() || analyzing || chess.isGameOver()) {
+      if (chess.isGameOver()) text(bestMoveEl, "gameOver");
       return;
     }
-
-    if (chess.isGameOver()) {
-      text(bestMoveEl, "gameOver");
+    if (activeEngine === 'maia') {
+      if (maiaState === 'idle') { createMaia(); return; }
+      if (maiaState !== 'ready') return;
+      analyzing = true;
+      text(bestMoveEl, 'analyzing');
+      literal(evaluationEl, '…');
+      refreshEngineStatus();
+      maiaWorker.postMessage({type: 'analyze', id: ++maiaRequest, fen: chess.fen(), elo: Number(maiaLevel.value), legalMoves: chess.moves({verbose:true}).map(move => move.from + move.to + (move.promotion || ''))});
       return;
     }
+    if (stockfishStopping || !engineReady) return;
 
     bestFrom = null;
     bestTo = null;
@@ -536,27 +682,25 @@
     text(bestMoveEl, "analyzing");
     analyzing = true;
 
-    analyzeBtn.disabled = true;
-    text(analyzeBtn, "analyzingButton");
-
     const depth = Number(depthSlider.value);
 
     engine.postMessage("stop");
     engine.postMessage("position fen " + chess.fen());
     engine.postMessage("go depth " + depth);
-  });
+  }
 
   // ==========================================
   // STOP ENGINE
   // ==========================================
 
   function stopEngine() {
-    if (!engine) return;
-
-    engine.postMessage("stop");
+    maiaRequest++;
+    if (engine && analyzing && activeEngine === 'stockfish') {
+      stockfishStopping = true;
+      engine.postMessage('stop');
+    }
     analyzing = false;
-    analyzeBtn.disabled = false;
-    text(analyzeBtn, "analyze");
+    refreshEngineStatus();
   }
 
   // ==========================================

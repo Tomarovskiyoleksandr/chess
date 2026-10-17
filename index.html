@@ -12,7 +12,10 @@
   <div class="site-shell">
     <header class="site-header">
       <a class="brand" href="./" aria-label="MonsterChess — главная" data-i18n-aria="home"><span class="brand-icon" aria-hidden="true">♞</span><span>Monster<span class="accent">Chess</span></span></a>
-      <span class="current-page"><span data-i18n="analysis">Анализ позиции</span></span>
+      <nav class="engine-tabs" aria-label="Движок" data-i18n-aria="engineTabs">
+        <button id="stockfishTab" class="engine-tab active" aria-pressed="true">Stockfish</button>
+        <button id="maiaTab" class="engine-tab" aria-pressed="false">Maia Chess</button>
+      </nav>
       <label class="language-picker"><span aria-hidden="true">◎</span><select id="languageSelect" aria-label="Язык" data-i18n-aria="language"><option value="ru" lang="ru">Русский</option><option value="en" lang="en">English</option><option value="de" lang="de">Deutsch</option><option value="uk" lang="uk">Українська</option></select></label>
     </header>
     <main>
@@ -41,28 +44,40 @@
             <textarea id="fenInput" spellcheck="false" aria-label="Позиция в формате FEN" data-i18n-aria="fenLabel"></textarea>
             <button id="loadFenBtn"><span data-i18n="loadFen">Загрузить FEN</span></button>
           </div>
-          <div class="setting">
+          <div class="setting" id="stockfishSettings">
             <label class="section-label" for="depth"><span data-i18n="depth">Глубина анализа</span></label>
             <div class="range-row"><input id="depth" type="range" min="8" max="18" value="14"><strong id="depthValue">14</strong></div>
+          </div>
+          <div class="setting" id="maiaSettings" hidden>
+            <label class="section-label" for="maiaLevel" data-i18n="maiaLevel">Уровень Maia · рейтинг</label>
+            <div class="range-row"><input id="maiaLevel" type="range" min="600" max="2600" step="100" value="1500"><strong id="maiaLevelValue">1500</strong></div>
+            <label class="section-label variant-label" for="maiaCount" data-i18n="variantCount">Количество вариантов</label>
+            <select id="maiaCount"><option value="1">1</option><option value="3" selected>3</option><option value="5">5</option></select>
+            <p class="engine-note" data-i18n="maiaNote"></p>
           </div>
         </aside>
         <section class="board-side" aria-label="Шахматная доска" data-i18n-aria="board">
           <div class="board-frame"><div id="board" class="board"></div></div>
           <div class="board-actions">
             <button id="undoBtn" title="Отменить последний ход" data-i18n-title="undoTitle">← <span><span data-i18n="undo">Назад</span></span></button>
-            <button id="analyzeBtn" data-i18n="analyze" class="main-btn">Найти лучший ход</button>
+            <div class="auto-analysis-note" data-i18n="autoAnalysis">Лучший ход рассчитывается автоматически</div>
           </div>
         </section>
         <aside class="panel analysis-panel" aria-label="Результат анализа" data-i18n-aria="results">
           <div class="engine-status"><span id="statusDot"></span><span id="engineStatus" data-i18n="loading">Загрузка Stockfish...</span></div>
-          <div class="result-block best-result" aria-live="polite"><span class="section-label"><span class="star" aria-hidden="true">★</span> <span data-i18n="best">Лучший ход</span></span><strong id="bestMove">—</strong></div>
-          <div class="result-block score-result"><span><span data-i18n="score">Оценка позиции для тебя</span></span><strong id="evaluation" aria-live="polite">—</strong></div>
+          <div class="result-block best-result" aria-live="polite"><span class="section-label"><span class="star" aria-hidden="true">★</span> <span id="bestLabel" data-i18n="best">Лучший ход</span></span><strong id="bestMove">—</strong></div>
+          <div class="result-block score-result"><span><span id="scoreLabel" data-i18n="score">Оценка позиции для тебя</span></span><strong id="evaluation" aria-live="polite">—</strong></div>
+          <div id="maiaVariants" class="maia-variants" hidden>
+            <div class="section-label" data-i18n="maiaVariants">Ходы и вероятность выбора</div>
+            <div id="variantList"></div>
+            <p class="engine-note" data-i18n="maiaHint"></p>
+          </div>
           <div class="position-info">
             <div class="info-row"><span id="turnText" data-i18n="turnWhite">Ход белых</span><span id="depthText">Глубина: —</span></div>
             <div class="you-row"><span id="playerInfo" data-i18n="playerWhite">Ты играешь: белыми</span><span id="moveOwnerText" data-i18n="yourTurn">Сейчас твой ход</span></div>
           </div>
           <div class="history"><div class="history-title"><span data-i18n="history">История партии</span></div><div id="moves" data-i18n="empty">Пока ходов нет</div></div>
-          <div class="help"><span data-i18n="help">Нажми на фигуру, затем на клетку, куда хочешь её поставить. Чтобы увидеть подсказку, нажми «Найти лучший ход».</span></div>
+          <div class="help"><span data-i18n="help">Нажми на фигуру, затем на клетку, куда хочешь её поставить. Подсказка для выбранной стороны обновится автоматически.</span></div>
         </aside>
       </div>
     </main>
